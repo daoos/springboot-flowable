@@ -24,15 +24,27 @@
 		    <groupId>org.springframework.boot</groupId>
 		    <artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
+		<!-- thymeleaf -->
+		<dependency>
+		    <groupId>org.springframework.boot</groupId>
+		    <artifactId>spring-boot-starter-thymeleaf</artifactId>
+		</dependency>
 		<!-- mysql数据库驱动 -->
 		<dependency>
 		    <groupId>mysql</groupId>
 		    <artifactId>mysql-connector-java</artifactId>
 		</dependency>
-			
-		<dependency>
+		<!-- 工作流依赖全家桶包 -->	
+		<!-- <dependency>
 			 <groupId>org.flowable</groupId>
 			 <artifactId>flowable-spring-boot-starter</artifactId>
+			 <version>${flowable.version}</version>
+		</dependency> -->
+		
+		<!-- flowable业务流程引擎 -->
+		<dependency>
+			 <groupId>org.flowable</groupId>
+			 <artifactId>flowable-spring-boot-starter-process</artifactId>
 			 <version>${flowable.version}</version>
 		</dependency>
 		
@@ -41,6 +53,15 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		
+		<!-- 热部署 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<optional>true</optional>
+			<scope>true</scope>
+		</dependency>
+
 	</dependencies>
 
 	<build>
