@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+	<ul>
+		<li><a href="#" th:href="@{/pay/start?userId=888888}">启动流程</a></li>
+		<li><a href="#" th:href="@{/pay/list?userId=888888}">录入员查询任务</a></li>
+		<li><a href="#" th:href="@{/pay/record?taskId=userIdTaskId}">录入任务</a></li>
+		<li><a href="#" th:href="@{/pay/list?userId=review}">审核员查询任务</a></li>
+		<li><a href="#" th:href="@{/pay/review?status=通过&taskId=reviewTaskId}">审核任务(通过)</a></li>
+		<li>================================</li>
+		<li><a href="#" th:href="@{/pay/review?status=不通过&taskId=reviewTaskId}">审核任务(不通过)</a></li>
+		<li><a href="#" th:href="@{/pay/modify?msg=生成废单&taskId=userIdTaskId}">(录入员)打回修改(生成废单)</a></li>
+		<li><a href="#" th:href="@{/pay/modify?msg=提交审核&taskId=userIdTaskId}">(录入员)打回修改(提交审核)</a></li>
+		<li>================================</li>
+		<li><a href="#" th:href="@{/pay/queryProcessId?taskId=888888}">根据TaskId查询ProcessInstanceId</a></li>
+		<li><a href="#" th:href="@{/pay/processDiagram?processId=733403a2-250a-11e9-900f-507b9dc37214}">当前processInstanceId流程图</a></li>
+		<li><a href="#" th:href="@{/pay/delInstance?processId=733403a2-250a-11e9-900f-507b9dc37214}">根据processInstanceId删除流程实例</a></li> 
+		<li><a href="#" th:href="@{/pay/deltask?taskId=733674aa-250a-11e9-900f-507b9dc37214}">删除任务</a></li>
+	</ul>
+	
+	
+	<p>*************************************************************</p>
+	<ol style=""> 流程:
+		<li>开启流程</li>
+		<li>查询待录入任务</li>
+		<li>录入提交</li>
+		<li>查询待审核任务</li>
+		<li>审核</li>
+		<li>
+			<ol>通过
+				<li>生成代付单</li>
+				<li>结束</li>
+			</ol>
+		</li>
+		<li>
+			<ol>不通过
+				<li>代付数据打回修改</li>
+				<li>
+					<ol>生成废单
+						<li>生成代付数据废单</li>
+						<li>结束</li>
+					</ol>
+				</li>
+				<li>
+					<ol>继续提交审核
+						<li>->4.查询待审核任务</li>
+					</ol>
+				</li>
+			</ol>
+		</li>
+	</ol>
+</body>
+</html>
