@@ -52,12 +52,15 @@ public class MyDemoService {
 	private ProcessEngine processEngine;
 	@Autowired
 	private HistoryService historyService;
+	
+	//启动->userId查询任务 ->提交任务 -> personnal查询任务 -> 批准/驳回 ->归档 ->结束
+	
 	//启动流程
 	public String startUp(String userId) throws Exception {
 		String processId = "demo";
 		Map<String, Object> map = new HashMap<String, Object>();       
     	map.put("userId", userId);
-        map.put("status", "0");
+//        map.put("status", "0");
         //流程发起人
     	ProcessInstance pro = null; 	
     	try {
@@ -87,6 +90,21 @@ public class MyDemoService {
 		}
 		Log.info(msg);
 		return msg;		
+	}
+	
+	//提交任务
+	public  String submitTask(String taskId) {
+		Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+		if (task == null) {
+			throw new RuntimeException("流程不存在");
+		}
+		// 通过审核
+		HashMap<String, Object> map = new HashMap<>();
+		map.put("status", "0");
+		taskService.complete(taskId, map);
+		String msg = "提交任务成功";
+		Log.info(msg);
+		return msg;
 	}
 	
 	//同意请假

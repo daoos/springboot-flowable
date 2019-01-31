@@ -2,29 +2,21 @@
 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:activiti="http://activiti.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="http://www.activiti.org/payment">
   <process id="payment" name="payment" isExecutable="true">
     <startEvent id="startevent1" name="Start"></startEvent>
-    <userTask id="usertask1" name="代付数据录入"></userTask>
+    <userTask id="usertask1" name="代付数据录入" activiti:assignee="$(userId)"></userTask>
     <sequenceFlow id="flow1" sourceRef="startevent1" targetRef="usertask1"></sequenceFlow>
-    <userTask id="usertask2" name="代付数据审核"></userTask>
+    <userTask id="usertask2" name="代付数据审核" activiti:assignee="review"></userTask>
     <sequenceFlow id="flow2" sourceRef="usertask1" targetRef="usertask2"></sequenceFlow>
     <exclusiveGateway id="exclusivegateway1" name="Exclusive Gateway"></exclusiveGateway>
     <sequenceFlow id="flow3" sourceRef="usertask2" targetRef="exclusivegateway1"></sequenceFlow>
     <userTask id="usertask3" name="代付数据打回修改"></userTask>
     <sequenceFlow id="flow4" name="不通过" sourceRef="exclusivegateway1" targetRef="usertask3"></sequenceFlow>
     <sequenceFlow id="flow5" sourceRef="usertask3" targetRef="exclusivegateway2"></sequenceFlow>
-    <serviceTask id="servicetask1" name="生成代付数据废单">
-      <extensionElements>
-        <activiti:executionListener event="start" class="priv.gitonlie.flowable.configure.pro.PaymentSlipDelegate"></activiti:executionListener>
-      </extensionElements>
-    </serviceTask>
+    <serviceTask id="servicetask1" name="生成代付数据废单" activiti:class="priv.gitonlie.flowable.configure.pro.PaymentDiscardDelegate"></serviceTask>
     <endEvent id="endevent1" name="End"></endEvent>
     <sequenceFlow id="flow6" sourceRef="servicetask1" targetRef="endevent1"></sequenceFlow>
     <sequenceFlow id="flow7" name="生成废单" sourceRef="exclusivegateway2" targetRef="servicetask1"></sequenceFlow>
     <sequenceFlow id="flow8" name="继续提交审核" sourceRef="exclusivegateway2" targetRef="usertask2"></sequenceFlow>
-    <serviceTask id="servicetask2" name="生成代付单">
-      <extensionElements>
-        <activiti:executionListener event="start" class="priv.gitonlie.flowable.configure.pro.PaymentSlipDelegate"></activiti:executionListener>
-      </extensionElements>
-    </serviceTask>
+    <serviceTask id="servicetask2" name="生成代付单" activiti:class="priv.gitonlie.flowable.configure.pro.PaymentSlipDelegate"></serviceTask>
     <sequenceFlow id="flow9" name="通过" sourceRef="exclusivegateway1" targetRef="servicetask2"></sequenceFlow>
     <sequenceFlow id="flow10" sourceRef="servicetask2" targetRef="endevent1"></sequenceFlow>
     <exclusiveGateway id="exclusivegateway2" name="Exclusive Gateway"></exclusiveGateway>

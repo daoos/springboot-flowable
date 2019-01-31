@@ -12,3 +12,5 @@ spring:
     password: admin123456
 
 flowable:  database-schema-update: false  process:    async-history:      executor:        auto-activate: false
+        
+server:  port: 8081
