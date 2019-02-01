@@ -31,10 +31,9 @@ public class SpringbootFlowableApplicationTests {
 	@Test
 	public void test() {
 		String userId = "ngh424";
-//		 String s = C.startProcess(userId); 
-//		 System.out.println(s);
-//		
-		service.queryProcessInstance(userId);
+//		startup(userId);
+		service.queryProcessInstance(userId,"");
+		
 	}
 	//开始
 	public void startup(String userId) {
