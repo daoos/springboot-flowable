@@ -30,7 +30,7 @@ public class SpringbootFlowableApplicationTests {
 	
 	@Test
 	public void test() {
-		String userId = "ngh424";
+		String userId = "123456";
 //		startup(userId);
 		service.queryProcessInstance(userId,"");
 		

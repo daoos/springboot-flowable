@@ -11,12 +11,23 @@ import java.util.List;
 import javax.servlet.http.HttpServletResponse;
 
 import org.flowable.bpmn.model.BpmnModel;
+import org.flowable.bpmn.model.EndEvent;
+import org.flowable.bpmn.model.FlowElement;
+import org.flowable.bpmn.model.FlowNode;
+import org.flowable.bpmn.model.SequenceFlow;
+import org.flowable.common.engine.api.query.QueryProperty;
+import org.flowable.engine.HistoryService;
 import org.flowable.engine.IdentityService;
 import org.flowable.engine.ProcessEngine;
 import org.flowable.engine.ProcessEngineConfiguration;
 import org.flowable.engine.RepositoryService;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
+import org.flowable.engine.history.HistoricActivityInstance;
+import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.engine.history.HistoricProcessInstanceQuery;
+import org.flowable.engine.runtime.ActivityInstance;
+import org.flowable.engine.runtime.ActivityInstanceQuery;
 import org.flowable.engine.runtime.Execution;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.image.ProcessDiagramGenerator;
@@ -30,6 +41,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+
+import priv.gitonlie.flowable.entity.PayProcessEntity;
 
 @RestController
 @RequestMapping(value = "/pay")
@@ -47,7 +60,8 @@ public class PayController {
 	private ProcessEngine processEngine;
 	@Autowired
 	private IdentityService identityService;
-	
+	@Autowired
+	private HistoryService historyService;
 	//1.开启流程 -> 2.查询录入任务 -> 3.录入数据提交 -> 4.查询待审核任务 -> 5.审核  -> 6.a 通过  -> 7.a 生成代付单 -> 8.a 结束
 //																    -> 6.b 不通过 -> 7.b 打回修改  -> 8.b 生成废单 -> 9.b 生成代付数据废单 -> 10.b 结束
 //																							  -> 8.c 继续提交 -> 9.c==>4?
@@ -128,7 +142,7 @@ public class PayController {
 	
 	//打回修改
 	@RequestMapping("/modify")
-	public String modify(String taskId,String msg) {
+	public String modify(String msg,String taskId) {
 		if(("生成废单".equals(msg)||"提交审核".equals(msg))||!StringUtils.isEmpty(taskId)) {
 			Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
 			if(task==null) {
@@ -142,15 +156,118 @@ public class PayController {
 		}		
 		return "打回修改参数错误";
 	}
-	/**
-	 * 删除任务
-	 * @return
-	 */
-	@RequestMapping("/deltask")
-	public String deleteTask(String taskId) {
-		taskService.deleteTask(taskId);
-		return "删除任务";
+	
+	//查询流程是否完成
+	@RequestMapping("/queryInstance")
+	public String queryProcessInstance(String processInstanceId) {
+		HistoricProcessInstanceQuery query = historyService.createHistoricProcessInstanceQuery().processDefinitionKey("pay000001").processInstanceId(processInstanceId);
+		if(query.count()==0) {
+			return "流程不存在";
+		}
+		long c = query.finished().count();
+		if(c>0) {
+			return "该流程已完成";
+		}
+		return "该流程未完成";
 	}
+	
+	@RequestMapping("/node")
+	public String node(String processId) {
+		String currentNode="",nextNode="",previousNode="";
+		if(this.isFinished(processId)) {
+			List<HistoricActivityInstance> list = historyService.createHistoricActivityInstanceQuery().processInstanceId(processId).orderByHistoricActivityInstanceStartTime().desc().list();
+			HistoricActivityInstance CURRENT = list.get(0);
+		}else {
+			ActivityInstanceQuery aiq = runtimeService.createActivityInstanceQuery().processInstanceId(processId);
+			List<ActivityInstance> list = aiq.orderByActivityInstanceStartTime().desc().list();
+			ActivityInstance current = list.get(0);
+			currentNode=current.getActivityId();
+			BpmnModel bpmnModel = repositoryService.getBpmnModel(current.getProcessDefinitionId());
+			FlowElement e = bpmnModel.getFlowElement(currentNode);
+			FlowNode flowNode = (FlowNode) e;
+			List<SequenceFlow> outFlows = flowNode.getOutgoingFlows();
+			for(SequenceFlow sequenceFlow:outFlows) {
+				// 下一个审批节点
+	            FlowElement targetFlow = sequenceFlow.getTargetFlowElement();
+	            if(targetFlow instanceof SequenceFlow) {
+	            	Log.info("序列流信息~~");
+	            	FlowNode f = (FlowNode) targetFlow;
+	            }
+
+			}
+		}				
+		return "das";		
+	}
+	/**
+	 * 总控制
+	 * @param payProcess
+	 * @return
+	 * @throws Exception 
+	 */
+	@RequestMapping("/interface")
+	public Object pay(PayProcessEntity payProcess,HttpServletResponse httpServletResponse) throws Exception {
+		Object msg = "不存在该流程名称";
+		if("启动流程".equals(payProcess.getProcessName())) {//启动流程
+			msg = startProcess(payProcess.getUserId());
+		}else if("查询任务".equals(payProcess.getProcessName())) {//查询任务列表
+			msg = queryTask(payProcess.getUserId());
+		}else if("录入数据".equals(payProcess.getProcessName())) {//录入任务
+			msg = record(payProcess.getTaskId());
+		}else if("审核数据".equals(payProcess.getProcessName())) {//审核任务
+			msg = review(payProcess.getStatus(), payProcess.getTaskId());
+		}else if("打回修改".equals(payProcess.getProcessName())) {//打回修改
+			msg = modify(payProcess.getStatus(),payProcess.getTaskId());
+		}else if("流程图".equals(payProcess.getProcessName())){//显示流程图
+			genProcessDiagram(httpServletResponse, payProcess.getProcessId(),payProcess.getStatus());
+			msg = "不存在流程实例";
+		}else if("流程是否完成".equals(payProcess.getProcessName())) {//查询流程是否完成
+			msg = queryProcessInstance(payProcess.getProcessId());
+		}else if("任务流程ID".equals(payProcess.getProcessName())) {//根据任务Id查询流程Id
+			msg = queryInstance(payProcess.getTaskId());
+		}else if("删除流程".equals(payProcess.getProcessName())) {//删除流程实例
+			msg = delInstance(payProcess.getProcessId());
+		}else if("用户流程明细".equals(payProcess.getProcessName())) {//删除流程实例
+			msg = queryExistProcess(payProcess.getUserId());
+		}
+		return msg;
+	}
+	@RequestMapping("/api")
+	public String api() {
+		StringBuffer sb = new StringBuffer();
+		sb.append("================pay000001.bpmn20.xml=============").append("<br/>")
+		.append("http://127.0.0.1:8081/pay/interface?").append("<br/>")
+		.append("&nbsp;").append("processName=启动流程&userId=?").append("<br/>")
+		.append("&nbsp;").append("processName=查询任务&userId=?").append("<br/>")
+		.append("&nbsp;").append("processName=录入数据&taskId=?").append("<br/>")
+		.append("&nbsp;").append("processName=审核数据&status=通过|不通过&taskId=?").append("<br/>")
+		.append("&nbsp;").append("processName=打回修改&status=提交审核|生成废单&taskId=?").append("<br/>")
+		.append("&nbsp;").append("processName=流程图&processId=?&status=null|流程历史").append("<br/>")
+		.append("&nbsp;").append("processName=流程是否完成&processId=?").append("<br/>")
+		.append("&nbsp;").append("processName=任务流程ID&taskId=?").append("<br/>")
+		.append("&nbsp;").append("processName=删除流程&processId=?").append("<br/>")
+		.append("&nbsp;").append("processName=用户流程明细&userId=?");
+		return sb.toString();
+	}
+	
+	public String queryExistProcess(String userId) {		
+		StringBuffer sb = new StringBuffer();
+		List<HistoricProcessInstance> ufhp = historyService.createHistoricProcessInstanceQuery().startedBy(userId).unfinished().orderByProcessInstanceStartTime().desc().list();
+		sb.append(userId).append("未完成流程").append(ufhp.size()).append("个").append("<br/>")
+		.append("=======================================").append("<br/>");
+		for(HistoricProcessInstance h:ufhp) {
+			sb.append(h.getId()).append("<br/>");
+		}
+		sb.append("=======================================").append("<br/>");
+		List<HistoricProcessInstance> fhp = historyService.createHistoricProcessInstanceQuery().startedBy(userId).finished().orderByProcessInstanceEndTime().desc().list();
+		sb.append(userId).append("已完成流程").append(fhp.size()).append("个").append("<br/>")
+		.append("=======================================").append("<br/>");
+		for(HistoricProcessInstance h:fhp) {
+			sb.append(h.getId()).append("<br/>");
+		}
+		sb.append("=======================================").append("<br/>");
+		return sb.toString();		
+	}
+	
 	/**
 	 * 查询任务流程实例
 	 * @return
@@ -176,37 +293,55 @@ public class PayController {
 	}
 	
 	/**
+	 * 判断流程是否结束
+	 * @param processInstanceId
+	 * @return
+	 */
+	public boolean isFinished(String processInstanceId) {
+        return historyService.createHistoricProcessInstanceQuery().finished()
+                .processInstanceId(processInstanceId).count() > 0;
+	}
+	
+	/**
 	 * 生成流程图
 	 *
 	 * @param processId 任务ID
 	 */
 	@RequestMapping(value = "processDiagram")
-	public void genProcessDiagram(HttpServletResponse httpServletResponse, String processId) throws Exception {
-		ProcessInstance pi = runtimeService.createProcessInstanceQuery().processInstanceId(processId).singleResult();
-
-		// 流程走完的不显示图
-		if (pi == null) {
-			Log.info("实例不存在");
-			return;
+	public void genProcessDiagram(HttpServletResponse httpServletResponse, String processId,String flag) throws Exception {
+		String pis = "";
+		List<String> activityIds = new ArrayList<String>();
+		List<String> flows = new ArrayList<String>();
+		
+		if(this.isFinished(processId) || "流程历史".equals(flag)) {//已结束流程
+			HistoricProcessInstance hpi = historyService.createHistoricProcessInstanceQuery().processInstanceId(processId).singleResult();
+			pis = hpi.getProcessDefinitionId();
+			List<HistoricActivityInstance> activityList = historyService.createHistoricActivityInstanceQuery().processInstanceId(processId).list();
+			for(HistoricActivityInstance act:activityList) {
+				activityIds.add(act.getActivityId());
+				if(act.getActivityType().equals("sequenceFlow")) {
+					flows.add(act.getActivityId());
+				}
+			}
+		}else {//未结束流程
+			 ProcessInstance pi = runtimeService.createProcessInstanceQuery().processInstanceId(processId).singleResult(); 
+			 if(pi==null) {
+				 Log.info("该流程不存在");
+				 return;
+			 }
+			  pis=pi.getProcessDefinitionId();
+			  List<Execution> executions = runtimeService.createExecutionQuery().processInstanceId(processId).list();
+			  for (Execution exe : executions) { 
+					  List<String> ids = runtimeService.getActiveActivityIds(exe.getId()); 
+					  activityIds.addAll(ids); 
+			  }
 		}
-		Task task = taskService.createTaskQuery().processInstanceId(pi.getId()).singleResult();
-		// 使用流程实例ID，查询正在执行的执行对象表，返回流程实例对象
-		String InstanceId = task.getProcessInstanceId();
-		List<Execution> executions = runtimeService.createExecutionQuery().processInstanceId(InstanceId).list();
-
-		// 得到正在执行的Activity的Id
-		List<String> activityIds = new ArrayList<>();
-		List<String> flows = new ArrayList<>();
-		for (Execution exe : executions) {
-			List<String> ids = runtimeService.getActiveActivityIds(exe.getId());
-			activityIds.addAll(ids);
-		}
-
+		 	
 		// 获取流程图
-		BpmnModel bpmnModel = repositoryService.getBpmnModel(pi.getProcessDefinitionId());
+		BpmnModel bpmnModel = repositoryService.getBpmnModel(pis);
 		ProcessEngineConfiguration engconf = processEngine.getProcessEngineConfiguration();
 		ProcessDiagramGenerator diagramGenerator = engconf.getProcessDiagramGenerator();
-		InputStream in = diagramGenerator.generateDiagram(bpmnModel, "png", activityIds, flows,
+		InputStream in = diagramGenerator.generateDiagram(bpmnModel, "bmp", activityIds, flows,
 				engconf.getActivityFontName(), engconf.getLabelFontName(), engconf.getAnnotationFontName(),
 				engconf.getClassLoader(), 1.0, false);
 		OutputStream out = null;

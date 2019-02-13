@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>流程记录API</title>
+</head>
+<body>
+<ul>
+<li><a href="" th:href="@{/pay/interface?processName=流程查询&processId=123456}" target="_blank">http://127.0.0.1:8081/pay/interface?processName=流程查询&processId=123456</a>
+<li><a href="" th:href="@{/pay/interface?processName=启动流程&userId=123456}" target="_blank">http://127.0.0.1:8081/pay/interface?processName=启动流程&userId=123456</a>
+<li><a href="" th:href="@{/pay/interface?processName=查询任务&userId=123456}" target="_blank">http://127.0.0.1:8081/pay/interface?processName=查询任务&userId=123456|review</a>
+<li><a href="" th:href="@{/pay/interface?processName=录入数据&taskId=123456}" target="_blank">http://127.0.0.1:8081/pay/interface?processName=录入数据&taskId=123456</a>
+<li><a href="" th:href="@{/pay/interface?processName=审核数据&taskId=123456&status=不通过}" target="_blank">http://127.0.0.1:8081/pay/interface?processName=审核数据&taskId=123456&status=不通过|通过</a>
+<li><a href="" th:href="@{/pay/interface?processName=打回修改&taskId=123456&status=继续提交审核}" target="_blank">http://127.0.0.1:8081/pay/interface?processName=打回修改&taskId=123456&status=提交审核|生成废单</a>
+<li><a href="" th:href="@{/pay/interface?processName=流程图&processId=123456}" target="_blank">http://127.0.0.1:8081/pay/interface?processName=流程图&processId=123456</a>
+</ul>
+</body>
+</html>
