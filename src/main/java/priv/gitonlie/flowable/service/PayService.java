@@ -38,6 +38,8 @@ public class PayService {
 	private HistoryService historyService;
 	
 	public void queryProcessInstance(String userId,String processId) {
+		int i = taskService.createTaskQuery().processInstanceId("9a0bc5cd-30fe-11e9-b8f5-507b9dc37214").list().size();
+		System.out.println(i);
 //		runtimeService.createProcessInstanceQuery()
 		//发起流程
 		HistoricProcessInstanceQuery instance = historyService.createHistoricProcessInstanceQuery().processDefinitionKey("pay000001");

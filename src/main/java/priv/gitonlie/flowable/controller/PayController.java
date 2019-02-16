@@ -4,6 +4,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -12,9 +13,13 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.flowable.bpmn.model.BpmnModel;
 import org.flowable.bpmn.model.EndEvent;
+import org.flowable.bpmn.model.ExclusiveGateway;
 import org.flowable.bpmn.model.FlowElement;
 import org.flowable.bpmn.model.FlowNode;
+import org.flowable.bpmn.model.Gateway;
 import org.flowable.bpmn.model.SequenceFlow;
+import org.flowable.bpmn.model.ServiceTask;
+import org.flowable.bpmn.model.UserTask;
 import org.flowable.common.engine.api.query.QueryProperty;
 import org.flowable.engine.HistoryService;
 import org.flowable.engine.IdentityService;
@@ -26,6 +31,7 @@ import org.flowable.engine.TaskService;
 import org.flowable.engine.history.HistoricActivityInstance;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.history.HistoricProcessInstanceQuery;
+import org.flowable.engine.impl.persistence.entity.ExecutionEntity;
 import org.flowable.engine.runtime.ActivityInstance;
 import org.flowable.engine.runtime.ActivityInstanceQuery;
 import org.flowable.engine.runtime.Execution;
@@ -80,7 +86,8 @@ public class PayController {
 		try {
 			//设置流程发起人
 			identityService.setAuthenticatedUserId(userId);
-			processInstance = runtimeService.startProcessInstanceByKey("pay000001", map);
+//			processInstance = runtimeService.startProcessInstanceByKey("pay000001", map);
+			processInstance = runtimeService.startProcessInstanceByKey("pay000001","busiKey88988",map);
 			processInstanceId = processInstance.getId();
 			Log.info("{}>userId:{}开启流程ID:{}",date,userId,processInstanceId);
 		}finally {
@@ -173,30 +180,54 @@ public class PayController {
 	
 	@RequestMapping("/node")
 	public String node(String processId) {
-		String currentNode="",nextNode="",previousNode="";
+		String currentNode="";
+		String msg = "";
 		if(this.isFinished(processId)) {
-			List<HistoricActivityInstance> list = historyService.createHistoricActivityInstanceQuery().processInstanceId(processId).orderByHistoricActivityInstanceStartTime().desc().list();
-			HistoricActivityInstance CURRENT = list.get(0);
+			msg = "流程已结束";
+			return msg;
 		}else {
-			ActivityInstanceQuery aiq = runtimeService.createActivityInstanceQuery().processInstanceId(processId);
-			List<ActivityInstance> list = aiq.orderByActivityInstanceStartTime().desc().list();
+			List<ActivityInstance> list = runtimeService.createActivityInstanceQuery().processInstanceId(processId).orderByActivityInstanceStartTime().desc().list();
 			ActivityInstance current = list.get(0);
 			currentNode=current.getActivityId();
+			msg = msg+"当前节点："+currentNode;
+			Log.info(msg);
 			BpmnModel bpmnModel = repositoryService.getBpmnModel(current.getProcessDefinitionId());
-			FlowElement e = bpmnModel.getFlowElement(currentNode);
-			FlowNode flowNode = (FlowNode) e;
+			FlowNode flowNode = (FlowNode) bpmnModel.getFlowElement(currentNode);
+			//输出线
 			List<SequenceFlow> outFlows = flowNode.getOutgoingFlows();
+			//输入线
+			List<SequenceFlow> inFlows = flowNode.getIncomingFlows();
+			//下一节点
+			msg = msg+",下一节点：";
+			boolean s = false;
 			for(SequenceFlow sequenceFlow:outFlows) {
 				// 下一个审批节点
+				if(s) {
+					msg = msg + "|";
+				}else {
+					s = true;
+				}
 	            FlowElement targetFlow = sequenceFlow.getTargetFlowElement();
-	            if(targetFlow instanceof SequenceFlow) {
-	            	Log.info("序列流信息~~");
-	            	FlowNode f = (FlowNode) targetFlow;
-	            }
-
+//	            targetFlow.
+	            msg = msg + targetFlow.getId();
+	            Log.info("下一节点："+targetFlow.getId());
+			}
+			//上一节点
+			msg = msg+",上一节点：";
+			boolean t = false;
+			for(SequenceFlow sequenceFlow:inFlows) {
+				// 上一个审批节点
+				if(t) {
+					msg = msg + "|";
+				}else {
+					t = true;
+				}
+	            FlowElement sourceFlow = sequenceFlow.getSourceFlowElement();
+	            msg = msg + sourceFlow.getId();
+	            Log.info("上一节点："+sourceFlow.getId());
 			}
 		}				
-		return "das";		
+		return msg;		
 	}
 	/**
 	 * 总控制
@@ -228,6 +259,10 @@ public class PayController {
 			msg = delInstance(payProcess.getProcessId());
 		}else if("用户流程明细".equals(payProcess.getProcessName())) {//删除流程实例
 			msg = queryExistProcess(payProcess.getUserId());
+		}else if("节点查询".equals(payProcess.getProcessName())) {//节点查询
+			msg = node(payProcess.getProcessId());
+		}else if("任务节点".equals(payProcess.getProcessName())) {//任务节点
+			msg = getTaskNode(payProcess.getTaskId()); 
 		}
 		return msg;
 	}
@@ -235,7 +270,7 @@ public class PayController {
 	public String api() {
 		StringBuffer sb = new StringBuffer();
 		sb.append("================pay000001.bpmn20.xml=============").append("<br/>")
-		.append("http://127.0.0.1:8081/pay/interface?").append("<br/>")
+		.append("http://192.168.100.32:8081/pay/interface?").append("<br/>")
 		.append("&nbsp;").append("processName=启动流程&userId=?").append("<br/>")
 		.append("&nbsp;").append("processName=查询任务&userId=?").append("<br/>")
 		.append("&nbsp;").append("processName=录入数据&taskId=?").append("<br/>")
@@ -245,7 +280,8 @@ public class PayController {
 		.append("&nbsp;").append("processName=流程是否完成&processId=?").append("<br/>")
 		.append("&nbsp;").append("processName=任务流程ID&taskId=?").append("<br/>")
 		.append("&nbsp;").append("processName=删除流程&processId=?").append("<br/>")
-		.append("&nbsp;").append("processName=用户流程明细&userId=?");
+		.append("&nbsp;").append("processName=用户流程明细&userId=?").append("<br/>")
+		.append("&nbsp;").append("processName=任务节点&taskId=?");
 		return sb.toString();
 	}
 	
@@ -361,4 +397,54 @@ public class PayController {
 			}
 		}
 	}
+	//任务节点
+	@RequestMapping("/nodeTask")
+	public String getTaskNode(String taskId) {
+		Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+		Execution execute = runtimeService.createExecutionQuery().executionId(task.getExecutionId()).singleResult();
+		BpmnModel bpmnModel = repositoryService.getBpmnModel(task.getProcessDefinitionId());
+		FlowNode flowNode = (FlowNode) bpmnModel.getFlowElement(execute.getActivityId());
+		String currentNode = "当前节点："+flowNode.getId();
+		Log.info("当前节点:{}",flowNode.getId());
+		//输出
+		List<SequenceFlow> outFlow = flowNode.getOutgoingFlows();
+		String outNode = "下一节点>";
+		for(SequenceFlow sequenceFlow:outFlow) {
+			FlowElement target = sequenceFlow.getTargetFlowElement();
+			if(target instanceof Gateway) {//判断是否网关
+				FlowNode gateway = (FlowNode)target;
+				List<SequenceFlow> gateway_outFlow = gateway.getOutgoingFlows();
+				for(SequenceFlow gateFlow:gateway_outFlow) {
+					FlowElement t = gateFlow.getTargetFlowElement();
+					outNode = outNode+t.getId()+",";
+				}
+			}else {
+				outNode = outNode+target.getId()+",";
+			}
+		}
+		Log.info(outNode);
+		//输入
+		String inNode="上一节点>";
+		List<SequenceFlow> inFlow = flowNode.getIncomingFlows();
+		for(SequenceFlow sequenceFlow:inFlow) {
+			FlowElement source = sequenceFlow.getSourceFlowElement();
+			if(source instanceof Gateway) {
+				FlowNode gateway = (FlowNode)source;
+				List<SequenceFlow> gateway_inFlow = gateway.getIncomingFlows();
+				for(SequenceFlow gateFlow:gateway_inFlow) {
+					FlowElement t = gateFlow.getSourceFlowElement();
+					inNode = inNode+t.getId()+",";
+				}
+			}else {
+				inNode = inNode+source.getId()+",";
+			}
+		}
+		Log.info(inNode);
+		StringBuffer sb = new StringBuffer();
+		sb.append(currentNode).append("<br/>")
+		.append(outNode).append("<br/>")
+		.append(inNode).append("<br/>");
+		return sb.toString();		
+	}
+	
 }
