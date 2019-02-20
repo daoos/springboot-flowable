@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 public class FlowableService {
@@ -126,12 +127,15 @@ public class FlowableService {
 	* @return
 	*/
 	public Map<String,Object> completeTask(Map<String,Object> map) {
-			//任务Id、流程实例Id、其他参数
 			Map<String,Object> result = new HashMap<String,Object>();
-			String processInstanceId = (String) map.get("processInstanceId");
-			String assignee = (String) map.get("userId");
-			String flag = (String) map.get("flag");
-			String remark = (String) map.get("remark");
+			String processInstanceId = map.get("processInstanceId")==null?"":String.valueOf(map.get("processInstanceId"));
+			String taskId = map.get("taskId")==null?"":String.valueOf(map.get("taskId"));
+			String assignee = map.get("userId")==null?"":String.valueOf(map.get("userId"));
+			String flag = map.get("flag")==null?"":String.valueOf(map.get("flag"));
+			String remark = map.get("remark")==null?"":String.valueOf(map.get("remark"));
+			if(!StringUtils.isEmpty(processInstanceId)) {
+				
+			}
 			Task task = taskService.createTaskQuery().processInstanceId(processInstanceId).singleResult();
 			if(task==null) {
 				result.put("messsage", "任务不存在");
